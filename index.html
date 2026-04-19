@@ -4,11 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-    <script src="./src/script.js" type="module"></script>
     <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+    <script src="./src/script.js" type="module"></script>
+    <script src="./src/graphing.js" type="module"></script>
+    <script src="./src/objdetection.js" type="module"></script>
+    <script src="./src/rotation-listener.js"></script>
+    <script src="./src/speech.js" type="module"></script>
+    <script src="./src/controller.js" type="module"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
   </head>
   <style>
     #scene {
@@ -32,19 +42,58 @@
       position: fixed;
       z-index: 9999;
     }
+    #data {
+      position: fixed;
+      left: 30%;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+    }
+    #controllerDiv {
+      position: fixed;
+      z-index: 9999;
+      top: 15%;
+      h1 {
+        color: Black;
+      }
+    }
   </style>
   <body>
+    <div id="data">
+      <canvas graphType="acceleration"></canvas>
+      <canvas graphType="velocity"></canvas>
+      <canvas graphType="position"></canvas>
+    </div>
     <div id="overlay">
+      <h1 id="hit" style="font-size: 50px"></h1>
       <button id="bluetooth">Connect</button>
+      <button id="enableAframe">Hide A-Frame</button>
       <button id="toggleBSConnection">connect to bs device</button>
-      Servo 1
-      <input id="servo1" type="range" value="0" min="0" max="180" />
+      <button id="initObjectDetection">Initialize Object Detection</button>
+      <button id="enableVoiceCommanding">Enable Voice</button>
+      <button id="enableGameController">Connect Game Controller</button>
+      <button id="showJoyPositions">Hide Joystick Positions</button>
+      <!--<input id="servo1" type="range" value="0" min="0" max="180" />
       Servo 2
       <input id="servo2" type="range" value="0" min="0" max="180" />
       Servo 3
       <input id="servo3" type="range" value="0" min="0" max="180" />
       Servo 4
-      <input id="servo4" type="range" value="0" min="0" max="180" />
+      <input id="servo4" type="range" value="0" min="0" max="180" />-->
+    </div>
+    <div id="controllerDiv">
+      <h1>Stick 1 Coords:</h1>
+      <h1>Stick 2 Coords:</h1>
+      <h1>Button (Index) Clicked:</h1>
+      <h2 id="sensitivityText">Adjust Controller Sensitivity: 50</h2>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value="50"
+        id="controllerSensitivity"
+        style="width: 100%"
+      />
     </div>
 
     <video id="video" class="media" autoplay playsinline></video>
@@ -71,7 +120,13 @@
           color="blue"
         ></a-box>
 
-        <a-entity rotary id="whiteArm1Entity" position="0 2.482 0">
+        <a-entity
+          rotation-listener="axis: y;"
+          rotary
+          id="whiteArm1Entity"
+          data-servo="0"
+          position="0 2.482 0"
+        >
           <a-box
             id="whiteArm1"
             color="white"
@@ -82,14 +137,20 @@
 
           <a-entity id="servo2Entity" scale="1 1 1" position="0 6.260 0">
             <a-box
-              id="servo2"
+              id="servo2Box"
               scale="1.27 1.27 2.22"
               position="0 0 0"
               rotation="0 0 0"
               color="blue"
             ></a-box>
 
-            <a-entity rotary id="whiteArm2Entity" position="0 1.324 0">
+            <a-entity
+              rotation-listener="axis: y;"
+              rotary
+              id="whiteArm2Entity"
+              data-servo="1"
+              position="0 1.324 0"
+            >
               <a-box
                 id="whiteArm2"
                 color="white"
@@ -97,7 +158,13 @@
                 position="0 2.482 0"
               ></a-box>
 
-              <a-entity rotary id="whiteArm3Entity" position="0 6.422 0">
+              <a-entity
+                rotation-listener="axis: x;"
+                rotary
+                id="whiteArm3Entity"
+                data-servo="2"
+                position="0 6.422 0"
+              >
                 <a-box
                   id="whiteArm3"
                   color="white"
@@ -106,9 +173,11 @@
                 ></a-box>
 
                 <a-entity
+                  rotation-listener="axis: z;"
                   rotary
                   id="servo4Entity"
                   scale="1 1 1"
+                  data-servo="3"
                   position="0 6.260 0"
                 >
                   <a-box
